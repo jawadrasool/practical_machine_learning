@@ -27,6 +27,8 @@ We see that there are 19622 observations and 160 variables. The variable *classe
 
 ## Data Preparation
 
+(Details in Rmd or html file.)
+
 For data preparation, I removed the following variables from the dataset:
 
 - Variabels that are for identification purposes only
@@ -39,20 +41,23 @@ Now, I split the training dataset into training (70%) and validation set (30%). 
 
 ## Modeling
 
+(Details in Rmd or html file.)
+
 We use three different models to predict the outcome. These models are decision tree, random forest and gradient boosting machine. 
 
 #### Decision Tree
 
-The accuracy is around 75%, which is not very high. The **out-of-sample error** is 25%. 
+The accuracy is around 75%, which is not very high. The **out-of-sample error** is 25%. (Details in Rmd or html file.)
 
 #### Random Forest
 
-With random forest, we reach an accuracy of 99.7% using cross-validation with 3 steps. The **out-of-sample error** is thus 0.3% only. The performance of random forest is excellent, it seems.
+With random forest, we reach an accuracy of 99.7% using cross-validation with 3 steps. The **out-of-sample error** is thus 0.3% only. The performance of random forest is excellent, it seems. (Details in Rmd or html file.)
 
 #### Gradient Boosting Machine
 
-With gradient boosting, we achieve an accuracy of 98.6% on the validation dataset. The **out-of-sample error** is thus 1.4% only. The gradient boosting model performed very close to the random forest model.
+With gradient boosting, we achieve an accuracy of 98.6% on the validation dataset. The **out-of-sample error** is thus 1.4% only. The gradient boosting model performed very close to the random forest model. (Details in Rmd or html file.)
 
 ## Prediction on Test Data
 
-Since the performance of the random forest model is the best among the three models, I used it to predict the values of *classe* variable for the test data containing 20 observations.
+Since the performance of the random forest model is the best among the three models, I used it to predict the values of *classe* variable for the test data containing 20 observations. (Details in Rmd or html file.)
+
