@@ -1,0 +1,198 @@
+---
+title: 'Course Project: Practical Machine Learning'
+author: "Jawad Rasool"
+date: "August 25, 2019"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+Six participants had accelerometers on the belt, forearm, arm, and dumbell. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. In this project, the goal is to use data from these accelerometers and predict the manner in which they did the exercise (given in the "classe" variable in the training set). Using the prediction model, 20 different test cases are also predicted.
+
+## Data used in this Project
+
+The data for this project come from [HAR](http://groupware.les.inf.puc-rio.br/har), and a detaled description of their work is provided in "Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. **Qualitative Activity Recognition of Weight Lifting Exercises**, *Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13)*, Stuttgart, Germany: ACM SIGCHI, 2013." According to this paper, six male participants, aged between 20-28 years with little
+weight lifting experience, were asked to perform one set of 10 repetitions
+of the Unilateral Dumbbell Biceps Curl in five different fashions: 
+
+- exactly according to the specification (Class A), 
+- throwing the elbows to the front (Class B), 
+- lifting the dumbbell only halfway (Class C), 
+- lowering the dumbbell only halfway (Class D) and 
+- throwing the hips to the front (Class E). 
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.
+
+### Loading the libraries and the dataset
+
+First, load the libraries that are needed for the project:
+
+```{r}
+library(caret)
+library(rattle)
+library(rpart)
+```
+
+Then download the training data:
+
+```{r cache=TRUE}
+# load training data
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+training <- read.csv(url(url_train),header=TRUE)
+dim(training)
+
+table(training$classe)
+```
+
+We see that there are 19622 observations and 160 variables. The variable *classe* is what the models will try to predict. Finally, I download the test data, on which I'll use my prediction model to predict 20 different cases:
+
+```{r cache=TRUE}
+# load testing data
+url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testing <- read.csv(url(url_test),header=TRUE)
+dim(testing)
+```
+
+## Data Preparation
+
+First, I set the seed for reproducibility. 
+
+```{r}
+# set the seed for reproducibility
+set.seed(1979)
+```
+
+I now remove the following variables from the dataset:
+
+- Variabels that are for identification purposes only
+- Variables with more than 80% of missing values
+- Near zero variance variables
+
+```{r cache=TRUE}
+# remove first 5 columns since they are for identification
+myTraining <- training[, -(1:5)]
+
+# remove columns with many missing values
+missing    <- sapply(myTraining, function(x) mean(is.na(x))) > 0.8
+myTraining <- myTraining[, missing==FALSE]
+
+# remove variables with Nearly Zero Variance
+nZV <- nearZeroVar(myTraining)
+myTraining <- myTraining[, -nZV]
+
+dim(myTraining)
+```
+
+We are now left with 54 variables in our dataset. This number is still very high and use of PCA to reduce the number of variabels might not be a bad idea. However, I'll not use it in this project.
+
+Now, I split the training dataset into training (70%) and validation set (30%). I'll use validation set for testing the performance of my models and selecting the best model.
+
+```{r cache=TRUE}
+# data partition
+inTrain <- createDataPartition(myTraining$classe, p=0.7, list=FALSE)
+myValidation <- myTraining[-inTrain, ]
+myTraining <- myTraining[inTrain, ]
+dim(myTraining); dim(myValidation)
+```
+
+
+## Modeling
+
+We use three different models to predict the outcome. These models are decision tree, random forest and gradient boosting machine. 
+
+#### Decision Tree
+We first create the model, and then plot the classification tree as a dendogram.
+
+```{r cache=TRUE}
+# Decision Tree
+model_dt <- rpart(classe ~ ., data=myTraining, method="class")
+fancyRpartPlot(model_dt, sub="")
+```
+
+We now check the performance of the model on the validation dataset:
+
+```{r cache=TRUE}
+# Prediction on validation set
+prediction_dt <- predict(model_dt, newdata=myValidation, type = "class")
+# Confusion Matrix
+cm_dt <- confusionMatrix(myValidation$classe, prediction_dt)
+```
+
+```{r echo=FALSE}
+ggplotConfusionMatrix <- function(cm){
+    myTitle <- paste("Accuracy", round(cm$overall[1]*100,3), "%, Kappa", round(cm$overall[2]*100,3), "%")
+    g <- ggplot(data.frame(cm$table) , aes(x = Reference, y = Prediction)) +
+        geom_tile(aes(fill = log(Freq)), colour = "white") +
+        scale_fill_gradient(low = "white", high = "green") +
+        geom_text(aes(x = Reference, y = Prediction, label = Freq)) +
+        theme(legend.position = "none") + ggtitle(myTitle)
+    return(g)
+}
+
+ggplotConfusionMatrix(cm_dt)
+```
+
+We see that the accuracy is around 75%, which is not very high. The **out-of-sample error** is 25%. 
+
+#### Random Forest
+We now fit the random forest model, and use **3-fold cross-validation** to select optimal tuning parameters for the model:
+
+```{r cache=TRUE}
+# Control Parameters
+trc <- trainControl(method="cv", number=3, verboseIter=FALSE)
+# Random Forest
+model_rf <- train(classe ~ ., data=myTraining, method="rf", trControl=trc)
+```
+
+We now check the performance of the model on the validation dataset:
+
+```{r cache=TRUE}
+# Prediction on validation set
+prediction_rf <- predict(model_rf, newdata=myValidation)
+# Confusion matrix
+cm_rf <- confusionMatrix(myValidation$classe, prediction_rf)
+```
+
+```{r echo=FALSE}
+ggplotConfusionMatrix(cm_rf)
+```
+
+With random forest, we reach an accuracy of 99.7% using cross-validation with 3 steps. The **out-of-sample error** is thus 0.3% only. The performance of random forest is excellent, it seems.
+
+#### Gradient Boosting Machine
+Finally, we train gradient boosting machine model. We again use **3-fold cross-validation**:
+
+```{r cache=TRUE}
+# GBM
+model_gbm <- train(classe ~ ., data=myTraining, method="gbm", trControl=trc, verbose=FALSE)
+```
+
+We now check the performance of the model on the validation dataset:
+
+```{r cache=TRUE}
+# Prediction on validation set
+prediction_gbm <- predict(model_gbm, newdata=myValidation)
+# Confusion Matrix
+cm_gbm <- confusionMatrix(myValidation$classe, prediction_gbm)
+```
+
+```{r echo=FALSE}
+ggplotConfusionMatrix(cm_gbm)
+```
+
+With gradient boosting, we achieve an accuracy of 98.6% on the validation dataset. The **out-of-sample error** is thus 1.4% only. The gradient boosting model performed very close to the random forest model.
+
+## Prediction on Test Data
+
+As we have seen in the last section, performance of the random forest model is the best among the three models. I'll, therefore, use it to predict the values of *classe* variable for the test data containing 20 observations:
+
+```{r echo=FALSE}
+prediction <- predict(model_rf, newdata=testing)
+prediction
+```
